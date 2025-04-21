@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamic Memory Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #e6aefc, #a6c1ee);
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    header {
+      background-color: #fff;
+      padding: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    header a {
+      color: #333;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 0 10px;
+    }
+
+    h1 {
+      margin: 20px;
+      color: #2c3e50;
+    }
+
+    #top-bar {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 1rem;
+      margin: 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background-color: #4ecdc4;
+      color: white;
+      transition: background-color 0.3s;
+    }
+
+    .btn:hover {
+      background-color: #3bb3a4;
+    }
+
+    #game-board {
+      display: grid;
+      gap: 10px;
+      margin: 20px auto;
+      padding: 10px;
+      justify-content: center;
+    }
+
+    .card {
+      width: 90px;
+      height: 90px;
+      perspective: 600px;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.5s;
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+      border: 2px solid black;
+    }
+
+    .card-front {
+      background: #ffffff;
+      transform: rotateY(180deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .card-back {
+      background: #f580ce;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5em;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      display: none;
+    }
+
+    .card.flipped img {
+      display: block;
+    }
+
+    #status {
+      font-size: 1.2em;
+      margin-top: 10px;
+      color: #2c3e50;
+    }
+
+    #message {
+      font-size: 1.5em;
+      margin-top: 20px;
+      color: #2c3e50;
+    }
+
+    #play-again {
+      margin-top: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="index.html">Resume Page</a><br>
+  <a href="scratch.html">Scratch Page</a><br>
+</header>
+
+<h1>🃏 Hidden Image Matching Game</h1>
+
+<div id="top-bar">
+  <button class="btn" onclick="resetGame()">Quit to Menu</button>
+</div>
+
+<div id="level-select">
+  <p>Select a difficulty:</p>
+  <button class="btn" onclick="startGame('easy')">Easy (4x4)</button>
+  <button class="btn" onclick="startGame('medium')">Medium (6x6)</button>
+  <button class="btn" onclick="startGame('hard')">Hard (10x10)</button>
+</div>
+
+<div id="status"></div>
+<div id="game-board"></div>
+<div id="message"></div>
+<div id="play-again">
+  <button class="btn" onclick="resetGame()">Play Again</button>
+</div>
+
+<script>
+  const board = document.getElementById("game-board");
+  const levelSelect = document.getElementById("level-select");
+  const message = document.getElementById("message");
+  const status = document.getElementById("status");
+  const playAgainBtn = document.getElementById("play-again");
+  const topBar = document.getElementById("top-bar");
+
+  let firstCard = null;
+  let secondCard = null;
+  let lockBoard = false;
+  let matchedPairs = 0;
+  let totalPairs = 0;
+  let turns = 0;
+  let gridSize = 4;
+
+  function startGame(level) {
+    if (level === 'easy') gridSize = 4;
+    else if (level === 'medium') gridSize = 6;
+    else gridSize = 10;
+
+    totalPairs = Math.floor((gridSize * gridSize) / 2);
+    board.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+    levelSelect.style.display = "none";
+    topBar.style.display = "block";
+    board.innerHTML = "";
+    message.textContent = "";
+    playAgainBtn.style.display = "none";
+    matchedPairs = 0;
+    turns = 0;
+    updateStatus();
+
+    const images = [];
+    for (let i = 1; i <= totalPairs; i++) {
+      images.push(`https://picsum.photos/seed/${i}/90`);
+    }
+
+    let allImages = [...images, ...images];
+    if ((gridSize * gridSize) % 2 !== 0) {
+      allImages.push(`https://picsum.photos/seed/unmatched/90`);
+    }
+
+    allImages.sort(() => 0.5 - Math.random());
+
+    allImages.forEach((src, index) => {
+      const card = createCard(src, index);
+      board.appendChild(card);
+    });
+  }
+
+  function createCard(src, index) {
+    const card = document.createElement("div");
+    card.classList.add("card");
+    card.dataset.index = index;
+    card.dataset.image = src;
+
+    const inner = document.createElement("div");
+    inner.classList.add("card-inner");
+
+    const front = document.createElement("div");
+    front.classList.add("card-front");
+    const img = document.createElement("img");
+    img.src = src;
+    front.appendChild(img);
+
+    const back = document.createElement("div");
+    back.classList.add("card-back");
+    back.textContent = "❓";
+
+    inner.appendChild(front);
+    inner.appendChild(back);
+    card.appendChild(inner);
+
+    card.addEventListener("click", () => {
+      if (lockBoard || card.classList.contains("matched") || card === firstCard) return;
+
+      card.classList.add("flipped");
+
+      if (!firstCard) {
+        firstCard = card;
+      } else {
+        secondCard = card;
+        lockBoard = true;
+        turns++;
+        updateStatus();
+
+        if (firstCard.dataset.image === secondCard.dataset.image) {
+          firstCard.classList.add("matched");
+          secondCard.classList.add("matched");
+          matchedPairs++;
+          resetCards();
+
+          if (matchedPairs === totalPairs) {
+            message.textContent = `🎉 You matched all the pairs in ${turns} turns!`;
+            playAgainBtn.style.display = "block";
+          }
+        } else {
+          setTimeout(() => {
+            firstCard.classList.remove("flipped");
+            secondCard.classList.remove("flipped");
+            resetCards();
+          }, 1000);
+        }
+      }
+    });
+
+    return card;
+  }
+
+  function resetCards() {
+    [firstCard, secondCard] = [null, null];
+    lockBoard = false;
+  }
+
+  function updateStatus() {
+    status.textContent = `Turns: ${turns}`;
+  }
+
+  function resetGame() {
+    firstCard = null;
+    secondCard = null;
+    lockBoard = false;
+    matchedPairs = 0;
+    board.innerHTML = "";
+    message.textContent = "";
+    status.textContent = "";
+    playAgainBtn.style.display = "none";
+    levelSelect.style.display = "block";
+    topBar.style.display = "none";
+  }
+</script>
+
+</body>
+</html>
